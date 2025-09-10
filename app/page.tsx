@@ -1,103 +1,222 @@
-import Image from "next/image";
+// File: app/page.tsx
+"use client";
 
-export default function Home() {
+import { useState, useCallback, useMemo } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { UploadCloud, ShieldCheck, Zap, Users, RefreshCw, XCircle, Loader2 } from 'lucide-react';
+
+// --- Type definition for the API response ---
+interface AnalysisResult {
+  prediction: "spoof" | "bonafide";
+  probabilities: {
+    bonafide: number;
+    spoof: number;
+  };
+  spectrogram_png: string;
+}
+
+// --- Main component for the application ---
+export default function VoiceGuardPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      setError(null); // Clear previous errors
+      setFile(acceptedFiles[0]);
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'audio/*': ['.mp3', '.wav', '.m4a', '.ogg', '.flac'] },
+    multiple: false,
+  });
+
+  const handleAnalyze = async () => {
+    if (!file) return;
+
+    setIsLoading(true);
+    setError(null);
+    setResult(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      // IMPORTANT: Replace with your actual backend URL
+      const response = await fetch('http://127.0.0.1:8000/predict', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.statusText}`);
+      }
+
+      const data: AnalysisResult = await response.json();
+      setResult(data);
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setFile(null);
+    setResult(null);
+    setError(null);
+  };
+
+  // --- Render different views based on the state ---
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8">
+      <div className="w-full max-w-4xl">
+        <Header />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+        {error && <ErrorMessage message={error} />}
+
+        {!result && (
+          <div className="mt-8">
+            <UploadZone
+              getRootProps={getRootProps}
+              getInputProps={getInputProps}
+              isDragActive={isDragActive}
+              file={file}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+            <AnalyzeButton
+              handleAnalyze={handleAnalyze}
+              isLoading={isLoading}
+              file={file}
+            />
+          </div>
+        )}
+
+        {result && <ResultDisplay result={result} onReset={handleReset} />}
+      </div>
+    </main>
   );
 }
+
+// --- Sub-components for better structure ---
+
+const Header = () => (
+  <header className="text-center">
+    <h1 className="text-4xl sm:text-5xl font-bold text-white">VoiceGuard</h1>
+    <p className="mt-2 text-lg text-slate-400">
+      Synthetic Voice & Deepfake Audio Detection
+    </p>
+  </header>
+);
+
+const UploadZone = ({ getRootProps, getInputProps, isDragActive, file }: any) => (
+  <div
+    {...getRootProps()}
+    className={`p-10 border-2 border-dashed rounded-xl cursor-pointer transition-colors duration-300
+    ${isDragActive ? 'border-blue-400 bg-blue-900/20' : 'border-slate-700 hover:border-blue-500'}
+    ${file ? 'border-green-500' : ''}`}
+  >
+    <input {...getInputProps()} />
+    <div className="flex flex-col items-center text-center">
+      <UploadCloud className={`w-16 h-16 mb-4 ${file ? 'text-green-500' : 'text-slate-500'}`} />
+      {file ? (
+        <>
+          <p className="font-semibold text-white">{file.name}</p>
+          <p className="text-sm text-slate-400">Ready for Analysis</p>
+        </>
+      ) : (
+        <>
+          <p className="font-semibold text-white">
+            {isDragActive ? 'Drop the file here' : 'Click to select audio file or drag and drop'}
+          </p>
+          <p className="text-sm text-slate-400">Supported formats: MP3, WAV, M4A, OGG</p>
+        </>
+      )}
+    </div>
+  </div>
+);
+
+const AnalyzeButton = ({ handleAnalyze, isLoading, file }: any) => (
+  <div className="mt-6 flex justify-center">
+    <button
+      onClick={handleAnalyze}
+      disabled={!file || isLoading}
+      className="w-full sm:w-1/2 flex items-center justify-center bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg
+      hover:bg-blue-700 transition-all duration-300 disabled:bg-slate-600 disabled:cursor-not-allowed"
+    >
+      {isLoading ? (
+        <>
+          <Loader2 className="animate-spin mr-2" />
+          Analyzing...
+        </>
+      ) : (
+        'Start Analysis'
+      )}
+    </button>
+  </div>
+);
+
+const ResultDisplay = ({ result, onReset }: { result: AnalysisResult; onReset: () => void }) => {
+  const isSpoof = result.prediction === 'spoof';
+  const confidence = (result.probabilities[result.prediction] * 100).toFixed(2);
+
+  const resultColor = isSpoof ? 'text-red-500' : 'text-green-500';
+  const resultBgColor = isSpoof ? 'bg-red-900/20 border-red-800' : 'bg-green-900/20 border-green-800';
+
+  return (
+    <div className="mt-8 p-6 bg-slate-800/50 border border-slate-700 rounded-xl animate-fade-in">
+      <h2 className="text-2xl font-bold text-center text-white">Analysis Complete</h2>
+      <div className="grid md:grid-cols-2 gap-6 mt-6">
+        {/* Left Side: Prediction & Details */}
+        <div className={`p-6 rounded-lg border ${resultBgColor}`}>
+          <h3 className="text-lg font-semibold text-slate-300">Detection Result</h3>
+          <p className={`text-5xl font-bold my-4 capitalize ${resultColor}`}>{result.prediction}</p>
+          <div className="space-y-2 text-slate-300">
+            <p>
+              <span className="font-semibold">Confidence: </span> 
+              <span className={`font-bold ${resultColor}`}>{confidence}%</span>
+            </p>
+            <p>
+              <span className="font-semibold">Spoof Probability: </span> 
+              {(result.probabilities.spoof * 100).toFixed(2)}%
+            </p>
+            <p>
+              <span className="font-semibold">Bonafide Probability: </span> 
+              {(result.probabilities.bonafide * 100).toFixed(2)}%
+            </p>
+          </div>
+        </div>
+        
+        {/* Right Side: Spectrogram */}
+        <div className="p-4 bg-slate-900 rounded-lg border border-slate-700">
+          <h3 className="text-lg font-semibold text-slate-300 mb-2">Log-Mel Spectrogram</h3>
+          <div className="bg-black rounded-md overflow-hidden">
+            <img src={result.spectrogram_png} alt="Spectrogram of the audio" className="w-full h-auto" />
+          </div>
+        </div>
+      </div>
+      <div className="mt-8 flex justify-center">
+        <button
+          onClick={onReset}
+          className="flex items-center justify-center bg-slate-600 text-white font-semibold py-3 px-6 rounded-lg
+          hover:bg-slate-700 transition-all duration-300"
+        >
+          <RefreshCw className="mr-2 h-5 w-5" />
+          Analyze Another File
+        </button>
+      </div>
+    </div>
+  );
+};
+
+
+
+const ErrorMessage = ({ message }: { message: string }) => (
+  <div className="mt-4 p-4 bg-red-900/30 border border-red-700 text-red-300 rounded-lg flex items-center justify-center">
+    <XCircle className="w-5 h-5 mr-2" />
+    <p>{message}</p>
+  </div>
+);
